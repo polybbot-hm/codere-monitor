@@ -79,7 +79,7 @@ class CodereScaper(BookmakerScraper):
                     if not match_date or not (now < match_date <= cutoff):
                         continue
 
-                    event_id = str(event.get("EventId") or event.get("Id") or "")
+                    event_id = str(event.get("EventId") or event.get("Id") or event.get("NodeId") or "")
                     if not event_id:
                         continue
 
