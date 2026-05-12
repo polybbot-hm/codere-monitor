@@ -23,9 +23,9 @@ HEADERS = {
     "Referer": "https://m.apuestas.codere.es/",
 }
 
-# categoryInfoId=151 → Tarjetas/Faltas
-# categoryInfoId=150 → Córners (por si se quiere ampliar)
-FOUL_CATEGORY_ID = 151
+# categoryInfoId=78  → ESTADÍSTICAS (contiene Faltas, Tiros, etc.)
+# categoryInfoId=55  → Córners (por si se quiere ampliar)
+STATS_CATEGORY_ID = 78
 
 
 class CodereScaper(BookmakerScraper):
@@ -120,7 +120,7 @@ class CodereScaper(BookmakerScraper):
         )
         params = {
             "parentid": match.external_id,
-            "categoryInfoId": FOUL_CATEGORY_ID,
+            "categoryInfoId": STATS_CATEGORY_ID,
         }
 
         markets = []
@@ -136,9 +136,12 @@ class CodereScaper(BookmakerScraper):
 
             for game in games:
                 try:
-                    game_id = str(game.get("GameId", ""))
+                    game_id = str(game.get("NodeId", "") or game.get("GameId", ""))
                     market_name = game.get("Name", "")
                     results = game.get("Results", [])
+
+                    if "faltas" not in market_name.lower():
+                        continue
 
                     if not results:
                         continue

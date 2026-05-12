@@ -18,8 +18,8 @@ CLEANUP_INTERVAL = 86400           # cada 24h limpia snapshots viejos
 # Codere
 CODERE_BASE_URL = "https://m.apuestas.codere.es"
 CODERE_LALIGA_PARENT_ID = "2903511051"
-CODERE_CATEGORY_FOULS = 151        # Tarjetas/Faltas
-CODERE_CATEGORY_CORNERS = 150      # Córners (por si acaso)
+CODERE_CATEGORY_STATS = 78         # ESTADÍSTICAS (contiene Faltas)
+CODERE_CATEGORY_CORNERS = 55       # Córners
 
 # Monitorizar partidos con X horas de antelación
 HOURS_AHEAD = 24
