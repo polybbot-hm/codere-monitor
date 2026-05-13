@@ -24,7 +24,7 @@ HEADERS = {
 ALTENAR_BASE_URL = "https://sb2frontend-altenar2.biahosted.com/api/widget"
 ALTENAR_PARAMS_BASE = {
     "culture": "es-ES",
-    "timezoneOffset": "-120",
+    "timezoneOffset": "120",   # UTC+2 España verano; JS devuelve -120 pero Altenar espera positivo
     "integration": "casinogranmadrid",
     "deviceType": "1",
     "numFormat": "en-GB",
@@ -57,21 +57,27 @@ class GranMadridScraper(BookmakerScraper):
         response.raise_for_status()
         return response.json()
 
-    async def _init_session(self, client: httpx.AsyncClient) -> None:
+    async def _init_session(self, client: httpx.AsyncClient) -> bool:
         """
-        Hace un GET a la página principal de apuestas para inicializar
-        las cookies de sesión que requiere la API Altenar.
+        Hace un GET a la página principal para obtener cookies de sesión.
+        Devuelve True si tuvo éxito (2xx), False si fue bloqueado.
         """
         try:
-            await client.get(GRANMADRID_SESSION_URL, headers=HEADERS, timeout=15)
-            logger.info("[GranMadrid] Sesión inicializada")
+            resp = await client.get(GRANMADRID_SESSION_URL, headers=HEADERS, timeout=15)
+            cookies = dict(client.cookies)
+            logger.info(
+                f"[GranMadrid] Sesión: HTTP {resp.status_code} | "
+                f"cookies obtenidas: {list(cookies.keys()) or 'ninguna'}"
+            )
+            return resp.status_code < 400
         except Exception as e:
-            logger.warning(f"[GranMadrid] No se pudo inicializar sesión: {e}")
+            logger.warning(f"[GranMadrid] Error de red en sesión: {e}")
+            return False
 
     async def get_laliga_matches(self) -> list[MatchInfo]:
         """
-        Llama a GetChampionshipEvents con el champId de LaLiga
-        y devuelve partidos de las próximas HOURS_AHEAD horas.
+        Llama a GetChampionshipEvents con el champId de LaLiga.
+        Intenta primero sin sesión para diagnosticar si la auth es necesaria.
         """
         url = f"{ALTENAR_BASE_URL}/GetChampionshipEvents"
         params = {
@@ -85,7 +91,20 @@ class GranMadridScraper(BookmakerScraper):
         cutoff = now + timedelta(hours=config.HOURS_AHEAD)
 
         async with httpx.AsyncClient(follow_redirects=True) as client:
-            await self._init_session(client)
+            # Intento 1: sin sesión (diagnóstico)
+            try:
+                jitter = random.uniform(config.REQUEST_JITTER_MIN, config.REQUEST_JITTER_MAX)
+                await asyncio.sleep(jitter)
+                resp_direct = await client.get(url, params=params, headers=HEADERS, timeout=15)
+                logger.info(f"[GranMadrid] Sin sesión → HTTP {resp_direct.status_code}")
+            except Exception as e:
+                logger.warning(f"[GranMadrid] Sin sesión → error de red: {e}")
+
+            # Intento 2: con sesión
+            session_ok = await self._init_session(client)
+            if not session_ok:
+                logger.warning("[GranMadrid] Sesión bloqueada (probable protección anti-bot). Abortando.")
+                return []
 
             try:
                 data = await self._get(client, url, params)
