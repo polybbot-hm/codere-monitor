@@ -1,6 +1,6 @@
 # Skill Registry — codere_monitor
 
-Generated: 2026-05-12
+Generated: 2026-05-13
 
 ## User-Level Skills (`~/.claude/skills/`)
 
@@ -21,3 +21,4 @@ None found at project root (no CLAUDE.md, agents.md, .cursorrules, etc.)
 
 - SDD skills (`sdd-*`) are excluded from this registry per convention.
 - Stack is Python — `go-testing` skill is not applicable to this project.
+- `skill-creator` is relevant when establishing new patterns for this project's scraper architecture.

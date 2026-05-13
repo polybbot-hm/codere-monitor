@@ -56,7 +56,8 @@ class AlertSent(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
     market_name = Column(String, nullable=False)
-    alert_type = Column(String, nullable=False)         # "new_market" | "odds_change"
+    alert_type = Column(String, nullable=False)         # "new_market" | "odds_change" | "LINE_CHANGE:{hash}" | "MARKET_DISAPPEARANCE:{hash}"
+    outcome_detail = Column(String, nullable=True)      # par de líneas (LINE_CHANGE) o outcome (MARKET_DISAPPEARANCE)
     sent_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     match = relationship("Match", back_populates="alerts")

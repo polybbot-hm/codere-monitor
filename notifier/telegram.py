@@ -64,6 +64,48 @@ def build_odds_change_message(
     )
 
 
+def build_line_change_message(
+    home: str,
+    away: str,
+    market_name: str,
+    disappeared: set[str],
+    appeared: set[str],
+    bookmaker: str,
+) -> str:
+    old_lines = ", ".join(sorted(disappeared))
+    new_lines = ", ".join(sorted(appeared))
+    bookmaker_display = bookmaker.upper()
+
+    return (
+        f"🔄 *CAMBIO DE LÍNEA — FALTAS*\n\n"
+        f"*{home} vs {away}*\n\n"
+        f"📊 *{market_name}*\n"
+        f"  ❌ Desaparece: `{old_lines}`\n"
+        f"  ✅ Aparece: `{new_lines}`\n\n"
+        f"🏠 Casa: {bookmaker_display}\n"
+        f"⏰ {datetime.now(timezone.utc).strftime('%H:%M')} UTC"
+    )
+
+
+def build_market_disappearance_message(
+    home: str,
+    away: str,
+    market_name: str,
+    outcome_name: str,
+    bookmaker: str,
+) -> str:
+    bookmaker_display = bookmaker.upper()
+
+    return (
+        f"⛔ *OUTCOME DESAPARECIDO — FALTAS*\n\n"
+        f"*{home} vs {away}*\n\n"
+        f"📊 *{market_name}*\n"
+        f"  `{outcome_name}` — retirado del mercado\n\n"
+        f"🏠 Casa: {bookmaker_display}\n"
+        f"⏰ {datetime.now(timezone.utc).strftime('%H:%M')} UTC"
+    )
+
+
 async def send_message(text: str):
     """Envía un mensaje a tu Telegram personal."""
     url = f"{TELEGRAM_API}/sendMessage"

@@ -27,3 +27,7 @@ HOURS_AHEAD = 24
 # Anti-ban: jitter entre requests (segundos)
 REQUEST_JITTER_MIN = 5
 REQUEST_JITTER_MAX = 20
+
+# Detección de desaparición de cuotas
+DISAPPEARANCE_THRESHOLD = int(os.getenv("DISAPPEARANCE_THRESHOLD", 2))
+DISAPPEARANCE_RATE_LIMIT_MINUTES = int(os.getenv("DISAPPEARANCE_RATE_LIMIT_MINUTES", 30))
