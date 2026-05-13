@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, Boolean,
-    ForeignKey, UniqueConstraint, create_engine
+    ForeignKey, UniqueConstraint, create_engine, inspect, text
 )
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime, timezone
@@ -71,4 +71,14 @@ class AlertSent(Base):
 def init_db(database_url: str):
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    _migrate(engine)
     return engine
+
+
+def _migrate(engine):
+    inspector = inspect(engine)
+    existing = {col["name"] for col in inspector.get_columns("alerts_sent")}
+    with engine.connect() as conn:
+        if "outcome_detail" not in existing:
+            conn.execute(text("ALTER TABLE alerts_sent ADD COLUMN outcome_detail VARCHAR"))
+            conn.commit()
