@@ -106,6 +106,64 @@ def build_market_disappearance_message(
     )
 
 
+def build_cuotas_snapshot_message(results: list[dict]) -> str:
+    """
+    Construye el mensaje de snapshot de cuotas en vivo.
+
+    results = [
+      {
+        "scraper_name": "codere",
+        "matches": [
+          {
+            "home": "Alavés", "away": "Barcelona",
+            "markets": [OddsMarket, ...]
+          }
+        ],
+        "error": None  # o str con el mensaje de error
+      },
+      ...
+    ]
+    """
+    lines = ["📊 *CUOTAS ACTUALES — FALTAS*"]
+
+    for entry in results:
+        scraper_name = entry["scraper_name"].upper()
+        lines.append("")
+        lines.append(f"🏠 *{scraper_name}*")
+
+        if entry.get("error"):
+            lines.append(f"⚠️ Error consultando {entry['scraper_name']}: {entry['error']}")
+            continue
+
+        matches = entry.get("matches", [])
+
+        if not matches:
+            lines.append("Sin partidos en las próximas 24h.")
+            continue
+
+        any_market = False
+        for match_data in matches:
+            markets = match_data.get("markets", [])
+            if not markets:
+                continue
+            any_market = True
+            lines.append("")
+            lines.append(f"⚽ {match_data['home']} vs {match_data['away']}")
+            for market in markets:
+                lines.append(f"  {market.market_name}")
+                outcome_parts = []
+                for outcome in market.outcomes:
+                    outcome_parts.append(f"{outcome['name']} → {outcome['odds']:.2f}")
+                lines.append("    " + " | ".join(outcome_parts))
+
+        if not any_market:
+            lines.append("Sin mercados disponibles ahora mismo.")
+
+    lines.append("")
+    lines.append(f"⏰ {datetime.now(timezone.utc).strftime('%H:%M')} UTC")
+    return "\n".join(lines)
+
+
 async def send_message(text: str):
     """Envía un mensaje a tu Telegram personal."""
     url = f"{TELEGRAM_API}/sendMessage"
