@@ -15,28 +15,28 @@ logger = logging.getLogger(__name__)
 async def job_fetch_matches(SessionLocal: sessionmaker):
     """Cada 5 min: busca partidos de LaLiga en las próximas 24h y los registra en BD."""
     logger.info("▶ JOB: fetch_matches")
-    scraper = SCRAPERS["codere"]
 
-    try:
-        matches_info = await scraper.get_laliga_matches()
-    except Exception as e:
-        logger.error(f"fetch_matches falló: {e}")
-        return
+    for scraper_name, scraper in SCRAPERS.items():
+        try:
+            matches_info = await scraper.get_laliga_matches()
+        except Exception as e:
+            logger.error(f"fetch_matches [{scraper_name}] falló: {e}")
+            continue
 
-    with SessionLocal() as session:
-        repo = MatchRepository(session)
-        for m in matches_info:
-            repo.upsert_match(
-                external_id=m.external_id,
-                bookmaker=m.bookmaker,
-                home=m.home_team,
-                away=m.away_team,
-                match_date=m.match_date,
-                competition=m.competition,
-            )
-        repo.deactivate_old_matches()
-        session.commit()
-    logger.info(f"fetch_matches: {len(matches_info)} partidos procesados")
+        with SessionLocal() as session:
+            repo = MatchRepository(session)
+            for m in matches_info:
+                repo.upsert_match(
+                    external_id=m.external_id,
+                    bookmaker=m.bookmaker,
+                    home=m.home_team,
+                    away=m.away_team,
+                    match_date=m.match_date,
+                    competition=m.competition,
+                )
+            repo.deactivate_old_matches()
+            session.commit()
+        logger.info(f"fetch_matches [{scraper_name}]: {len(matches_info)} partidos procesados")
 
 
 async def job_poll_odds(SessionLocal: sessionmaker):
@@ -52,9 +52,13 @@ async def job_poll_odds(SessionLocal: sessionmaker):
         return
 
     logger.info(f"poll_odds: consultando {len(active_matches)} partidos")
-    scraper = SCRAPERS["codere"]
 
     for match in active_matches:
+        scraper = SCRAPERS.get(match.bookmaker)
+        if scraper is None:
+            logger.warning(f"poll_odds: sin scraper para bookmaker '{match.bookmaker}', saltando")
+            continue
+
         from scrapers.base import MatchInfo
         match_info = MatchInfo(
             external_id=match.external_id,

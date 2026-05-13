@@ -1,4 +1,5 @@
 from scrapers.codere import CodereScaper
+from scrapers.granmadrid import GranMadridScraper
 from scrapers.base import BookmakerScraper
 
 # Registro de casas de apuestas activas.
@@ -7,6 +8,7 @@ from scrapers.base import BookmakerScraper
 #   2. Importa aquí y añade al dict
 SCRAPERS: dict[str, BookmakerScraper] = {
     "codere": CodereScaper(),
+    "granmadrid": GranMadridScraper(),
     # "bet365": Bet365Scraper(),
     # "bwin": BwinScraper(),
 }

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from datetime import datetime, timezone, timedelta
 from db.models import Match, OddsSnapshot, AlertSent
 import logging
@@ -81,6 +81,24 @@ class OddsRepository:
             .count() > 0
         )
 
+    def get_latest_market_outcomes(self, match_id: int, market_name: str) -> set[str]:
+        subq = (
+            self.session.query(func.max(OddsSnapshot.captured_at))
+            .filter_by(match_id=match_id, market_name=market_name)
+            .scalar_subquery()
+        )
+        rows = (
+            self.session.query(OddsSnapshot.outcome)
+            .filter(
+                OddsSnapshot.match_id == match_id,
+                OddsSnapshot.market_name == market_name,
+                OddsSnapshot.captured_at == subq,
+            )
+            .distinct()
+            .all()
+        )
+        return {r.outcome for r in rows}
+
     def cleanup_old_snapshots(self, days: int = 7):
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         deleted = (
@@ -102,10 +120,37 @@ class AlertRepository:
             .count() > 0
         )
 
-    def mark_sent(self, match_id: int, market_name: str, alert_type: str):
+    def last_sent_at(self, match_id: int, market_name: str, alert_type: str) -> datetime | None:
+        return (
+            self.session.query(func.max(AlertSent.sent_at))
+            .filter_by(match_id=match_id, market_name=market_name, alert_type=alert_type)
+            .scalar()
+        )
+
+    def mark_sent(self, match_id: int, market_name: str, alert_type: str,
+                  outcome_detail: str | None = None):
         alert = AlertSent(
             match_id=match_id,
             market_name=market_name,
             alert_type=alert_type,
+            outcome_detail=outcome_detail,
         )
         self.session.add(alert)
+
+    def mark_disappearance_sent(self, match_id: int, market_name: str, alert_type: str,
+                                outcome_detail: str | None = None):
+        existing = (
+            self.session.query(AlertSent)
+            .filter_by(match_id=match_id, market_name=market_name, alert_type=alert_type)
+            .first()
+        )
+        if existing:
+            existing.sent_at = datetime.now(timezone.utc)
+            existing.outcome_detail = outcome_detail
+        else:
+            self.session.add(AlertSent(
+                match_id=match_id,
+                market_name=market_name,
+                alert_type=alert_type,
+                outcome_detail=outcome_detail,
+            ))
