@@ -140,7 +140,7 @@ class CodereScaper(BookmakerScraper):
                     market_name = game.get("Name", "")
                     results = game.get("Results", [])
 
-                    if "faltas" not in market_name.lower():
+                    if "faltas cometidas" not in market_name.lower():
                         continue
 
                     if not results:
