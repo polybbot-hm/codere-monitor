@@ -91,12 +91,26 @@ async def analyze_markets(
                             f"Cambio de línea: {market.market_name} "
                             f"{sorted(disappeared)} → {sorted(appeared)}"
                         )
+                        # Cuotas anteriores (último snapshot de cada outcome desaparecido)
+                        disappeared_with_odds = []
+                        for d in disappeared:
+                            snap = odds_repo.get_latest_snapshot(match.id, market.market_name, d)
+                            disappeared_with_odds.append({
+                                "name": d,
+                                "odds": snap.odds_value if snap else None,
+                            })
+                        # Cuotas nuevas (del scrape actual)
+                        appeared_with_odds = [
+                            {"name": o["name"], "odds": o["odds"]}
+                            for o in market.outcomes
+                            if o["name"] in appeared
+                        ]
                         msg = telegram.build_line_change_message(
                             home=match.home_team,
                             away=match.away_team,
                             market_name=market.market_name,
-                            disappeared=disappeared,
-                            appeared=appeared,
+                            disappeared_with_odds=disappeared_with_odds,
+                            appeared_with_odds=appeared_with_odds,
                             bookmaker=market.bookmaker,
                         )
                         await telegram.send_message(msg)

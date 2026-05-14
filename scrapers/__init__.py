@@ -8,7 +8,7 @@ from scrapers.base import BookmakerScraper
 #   2. Importa aquí y añade al dict
 SCRAPERS: dict[str, BookmakerScraper] = {
     "codere": CodereScaper(),
-    "granmadrid": GranMadridScraper(),
+    # "granmadrid": GranMadridScraper(),  # IP datacenter bloqueada por Cloudflare (403 → 401)
     # "bet365": Bet365Scraper(),
     # "bwin": BwinScraper(),
 }

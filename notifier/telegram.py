@@ -1,7 +1,10 @@
 import logging
 import httpx
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import config
+
+_TZ_SPAIN = ZoneInfo("Europe/Madrid")
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,7 @@ def build_new_market_message(
     bookmaker: str,
 ) -> str:
     """Formatea el mensaje cuando aparece un mercado de faltas nuevo."""
-    match_date_local = match_date.strftime("%d/%m/%Y %H:%M")
+    match_date_local = match_date.astimezone(_TZ_SPAIN).strftime("%d/%m/%Y %H:%M")
     outcomes_text = "\n".join(_format_odds_line(o) for o in outcomes)
     bookmaker_display = bookmaker.upper()
 
@@ -34,7 +37,7 @@ def build_new_market_message(
         f"📊 *{market_name}*\n"
         f"{outcomes_text}\n\n"
         f"🏠 Casa: {bookmaker_display}\n"
-        f"⏰ Detectado: {datetime.now(timezone.utc).strftime('%H:%M')} UTC"
+        f"⏰ Detectado: {datetime.now(_TZ_SPAIN).strftime('%H:%M')} España"
     )
 
 
@@ -60,7 +63,7 @@ def build_odds_change_message(
         f"  {outcome_name}\n"
         f"  {old_odds:.2f} → `{new_odds:.2f}` ({sign}{change:.2f})\n\n"
         f"🏠 Casa: {bookmaker_display}\n"
-        f"⏰ {datetime.now(timezone.utc).strftime('%H:%M')} UTC"
+        f"⏰ {datetime.now(_TZ_SPAIN).strftime('%H:%M')} España"
     )
 
 
@@ -68,22 +71,27 @@ def build_line_change_message(
     home: str,
     away: str,
     market_name: str,
-    disappeared: set[str],
-    appeared: set[str],
+    disappeared_with_odds: list[dict],
+    appeared_with_odds: list[dict],
     bookmaker: str,
 ) -> str:
-    old_lines = ", ".join(sorted(disappeared))
-    new_lines = ", ".join(sorted(appeared))
+    def fmt(outcomes: list[dict]) -> str:
+        parts = []
+        for o in sorted(outcomes, key=lambda x: x["name"]):
+            odds_str = f"@ `{o['odds']:.2f}`" if o.get("odds") is not None else ""
+            parts.append(f"{o['name']} {odds_str}".strip())
+        return " | ".join(parts)
+
     bookmaker_display = bookmaker.upper()
 
     return (
         f"🔄 *CAMBIO DE LÍNEA — FALTAS*\n\n"
         f"*{home} vs {away}*\n\n"
         f"📊 *{market_name}*\n"
-        f"  ❌ Desaparece: `{old_lines}`\n"
-        f"  ✅ Aparece: `{new_lines}`\n\n"
+        f"  ❌ {fmt(disappeared_with_odds)}\n"
+        f"  ✅ {fmt(appeared_with_odds)}\n\n"
         f"🏠 Casa: {bookmaker_display}\n"
-        f"⏰ {datetime.now(timezone.utc).strftime('%H:%M')} UTC"
+        f"⏰ {datetime.now(_TZ_SPAIN).strftime('%H:%M')} España"
     )
 
 
@@ -102,7 +110,7 @@ def build_market_disappearance_message(
         f"📊 *{market_name}*\n"
         f"  `{outcome_name}` — retirado del mercado\n\n"
         f"🏠 Casa: {bookmaker_display}\n"
-        f"⏰ {datetime.now(timezone.utc).strftime('%H:%M')} UTC"
+        f"⏰ {datetime.now(_TZ_SPAIN).strftime('%H:%M')} España"
     )
 
 
@@ -160,7 +168,7 @@ def build_cuotas_snapshot_message(results: list[dict]) -> str:
             lines.append("Sin mercados disponibles ahora mismo.")
 
     lines.append("")
-    lines.append(f"⏰ {datetime.now(timezone.utc).strftime('%H:%M')} UTC")
+    lines.append(f"⏰ {datetime.now(_TZ_SPAIN).strftime('%H:%M')} España")
     return "\n".join(lines)
 
 
