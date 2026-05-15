@@ -24,29 +24,26 @@ HEADERS = {
 ALTENAR_BASE_URL = "https://sb2frontend-altenar2.biahosted.com/api/widget"
 ALTENAR_PARAMS_BASE = {
     "culture": "es-ES",
-    "timezoneOffset": "120",   # UTC+2 España verano; JS devuelve -120 pero Altenar espera positivo
-    "integration": "casinogranmadrid",
+    "timezoneOffset": "-120",
+    "integration": "paston",
     "deviceType": "1",
     "numFormat": "en-GB",
     "countryCode": "ES",
 }
 
-GRANMADRID_SESSION_URL = "https://www.casinogranmadridonline.es/apuestas-deportivas"
-GRANMADRID_LALIGA_CHAMP_ID = "2941"
-
-# Mercados que nos interesan (EXCLUSIVAMENTE estos 3)
-TARGET_MARKET_TYPE_IDS = {15740, 15732, 15733}
+PASTON_FRONTEND_URL = "https://www.paston.es/apuestas-deportivas"
+PASTON_LALIGA_CHAMP_ID = "2941"
 
 # odd.typeId: 12 = over ("Más de"), 13 = under ("Menos de")
 ODD_TYPE_OVER = 12
 ODD_TYPE_UNDER = 13
 
 
-class GranMadridScraper(BookmakerScraper):
+class PastonScraper(BookmakerScraper):
 
     @property
     def name(self) -> str:
-        return "granmadrid"
+        return "paston"
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
     async def _get(self, client: httpx.AsyncClient, url: str, params: dict = None) -> dict | list:
@@ -66,24 +63,25 @@ class GranMadridScraper(BookmakerScraper):
             resp = await client.get(GRANMADRID_SESSION_URL, headers=HEADERS, timeout=15)
             cookies = dict(client.cookies)
             logger.info(
-                f"[GranMadrid] Sesión: HTTP {resp.status_code} | "
+                f"[Paston] Sesión: HTTP {resp.status_code} | "
                 f"cookies obtenidas: {list(cookies.keys()) or 'ninguna'}"
             )
             return resp.status_code < 400
         except Exception as e:
-            logger.warning(f"[GranMadrid] Error de red en sesión: {e}")
+            logger.warning(f"[Paston] Error de red en sesión: {e}")
             return False
 
     async def get_laliga_matches(self) -> list[MatchInfo]:
         """
-        Llama a GetChampionshipEvents con el champId de LaLiga.
-        Intenta primero sin sesión para diagnosticar si la auth es necesaria.
+        Llama a GetEventsByChamp para obtener partidos de LaLiga.
+        No requiere sesión — la API de Altenar/Paston es pública.
         """
-        url = f"{ALTENAR_BASE_URL}/GetChampionshipEvents"
+        url = f"{ALTENAR_BASE_URL}/GetEventsByChamp"
         params = {
             **ALTENAR_PARAMS_BASE,
-            "champIds": GRANMADRID_LALIGA_CHAMP_ID,
-            "group": "1",
+            "champId": "0",
+            "champIds": PASTON_LALIGA_CHAMP_ID,
+            "eventCount": "50",
         }
 
         matches = []
@@ -91,25 +89,10 @@ class GranMadridScraper(BookmakerScraper):
         cutoff = now + timedelta(hours=config.HOURS_AHEAD)
 
         async with httpx.AsyncClient(follow_redirects=True) as client:
-            # Intento 1: sin sesión (diagnóstico)
-            try:
-                jitter = random.uniform(config.REQUEST_JITTER_MIN, config.REQUEST_JITTER_MAX)
-                await asyncio.sleep(jitter)
-                resp_direct = await client.get(url, params=params, headers=HEADERS, timeout=15)
-                logger.info(f"[GranMadrid] Sin sesión → HTTP {resp_direct.status_code}")
-            except Exception as e:
-                logger.warning(f"[GranMadrid] Sin sesión → error de red: {e}")
-
-            # Intento 2: con sesión
-            session_ok = await self._init_session(client)
-            if not session_ok:
-                logger.warning("[GranMadrid] Sesión bloqueada (probable protección anti-bot). Abortando.")
-                return []
-
             try:
                 data = await self._get(client, url, params)
             except Exception as e:
-                logger.error(f"[GranMadrid] Error obteniendo partidos LaLiga: {e}")
+                logger.error(f"[Paston] Error obteniendo partidos LaLiga: {e}")
                 return []
 
             # La respuesta puede venir en distintas claves según la versión de la API
@@ -160,10 +143,10 @@ class GranMadridScraper(BookmakerScraper):
                     ))
 
                 except Exception as e:
-                    logger.warning(f"[GranMadrid] Error parseando evento: {e} | raw={event}")
+                    logger.warning(f"[Paston] Error parseando evento: {e} | raw={event}")
                     continue
 
-        logger.info(f"[GranMadrid] {len(matches)} partidos LaLiga encontrados (próximas {config.HOURS_AHEAD}h)")
+        logger.info(f"[Paston] {len(matches)} partidos LaLiga encontrados (próximas {config.HOURS_AHEAD}h)")
         return matches
 
     async def get_fouls_markets(self, match: MatchInfo) -> list[OddsMarket]:
@@ -181,13 +164,11 @@ class GranMadridScraper(BookmakerScraper):
         markets = []
 
         async with httpx.AsyncClient(follow_redirects=True) as client:
-            await self._init_session(client)
-
             try:
                 data = await self._get(client, url, params)
             except Exception as e:
                 logger.error(
-                    f"[GranMadrid] Error obteniendo mercados para {match.external_id}: {e}"
+                    f"[Paston] Error obteniendo mercados para {match.external_id}: {e}"
                 )
                 return []
 
@@ -199,8 +180,8 @@ class GranMadridScraper(BookmakerScraper):
 
             for market in raw_markets:
                 try:
-                    type_id = market.get("typeId") or market.get("TypeId")
-                    if type_id not in TARGET_MARKET_TYPE_IDS:
+                    market_name_raw = market.get("name") or market.get("Name") or ""
+                    if "falt" not in market_name_raw.lower() and "foul" not in market_name_raw.lower():
                         continue
 
                     market_id = str(market.get("id") or market.get("Id") or "")
@@ -246,11 +227,11 @@ class GranMadridScraper(BookmakerScraper):
                     ))
 
                 except Exception as e:
-                    logger.warning(f"[GranMadrid] Error parseando mercado: {e}")
+                    logger.warning(f"[Paston] Error parseando mercado: {e}")
                     continue
 
         logger.info(
-            f"[GranMadrid] {len(markets)} mercados de faltas para "
+            f"[Paston] {len(markets)} mercados de faltas para "
             f"{match.home_team} vs {match.away_team}"
         )
         return markets
