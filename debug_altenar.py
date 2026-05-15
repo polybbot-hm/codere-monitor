@@ -62,19 +62,20 @@ async def discover_integration_name(frontend_url: str) -> str | None:
 
 
 async def try_without_session(client: httpx.AsyncClient, integration: str) -> tuple[int, list]:
-    """Prueba GetChampionshipEvents sin inicializar sesión."""
+    """Prueba GetEventsByChamp sin inicializar sesión."""
     params = {
         "culture": "es-ES",
-        "timezoneOffset": "120",
+        "timezoneOffset": "-120",
         "integration": integration,
         "deviceType": "1",
         "numFormat": "en-GB",
         "countryCode": "ES",
+        "champId": "0",
         "champIds": LALIGA_CHAMP_ID,
-        "group": "1",
+        "eventCount": "5",
     }
     headers = {**HEADERS_BASE, "Referer": f"https://www.{integration}.es/"}
-    resp = await client.get(f"{ALTENAR_API}/GetChampionshipEvents", params=params,
+    resp = await client.get(f"{ALTENAR_API}/GetEventsByChamp", params=params,
                             headers=headers, timeout=10)
     if resp.status_code != 200:
         return resp.status_code, []
@@ -101,17 +102,18 @@ async def try_with_session(integration: str, frontend_url: str) -> tuple[str, li
         await asyncio.sleep(random.uniform(2, 5))
         params = {
             "culture": "es-ES",
-            "timezoneOffset": "120",
+            "timezoneOffset": "-120",
             "integration": integration,
             "deviceType": "1",
             "numFormat": "en-GB",
             "countryCode": "ES",
+            "champId": "0",
             "champIds": LALIGA_CHAMP_ID,
-            "group": "1",
+            "eventCount": "5",
         }
         headers = {**HEADERS_BASE, "Referer": frontend_url}
         try:
-            resp2 = await client.get(f"{ALTENAR_API}/GetChampionshipEvents",
+            resp2 = await client.get(f"{ALTENAR_API}/GetEventsByChamp",
                                      params=params, headers=headers, timeout=10)
         except Exception as e:
             return f"error API: {e}", []
